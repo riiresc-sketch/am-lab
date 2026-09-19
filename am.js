@@ -14,7 +14,7 @@ const cfg = {
 const dip = () => [crypto.randomInt(1,255), crypto.randomInt(0,255), crypto.randomInt(1,255)].join('.')
 
 const sp = h => ({
- ...h,
+  ...h,
   'x-forwarded-for': dip(),
   'x-real-ip': dip(),
   'client-ip': dip(),
@@ -41,7 +41,7 @@ const S = String
 
 const bad = e => {
   const d = e.response?.data
-  return d? (typeof d === 'object'? J.stringify(d) : S(d)) : e.message
+  return d ? (typeof d === 'object' ? J.stringify(d) : S(d)) : e.message
 }
 
 const inp = q => new Promise(r => {
@@ -90,7 +90,7 @@ function code(raw) {
   const m = s.match(/oobCode=([a-zA-Z0-9_-]+)/i)
   if (m) return m[1]
   const t = raw.trim()
-  if (/^[a-zA-Z0-9_-]{10,}$/.test(t) &&!t.includes('://')) return t
+  if (/^[a-zA-Z0-9_-]{10,}$/.test(t) && !t.includes('://')) return t
   return null
 }
 
@@ -109,20 +109,23 @@ async function auth(email, raw) {
     return {
       ok: true, email: email,
       id: a.data.idToken, ref: a.data.refreshToken,
-      uid: a.data.localId, baru:!!a.data.isNewUser, user: u
+      uid: a.data.localId, baru: !!a.data.isNewUser, user: u
     }
   } catch (e) { return { ok: false, why: bad(e) } }
 }
 
-async function pro(id) {
+async function pro(id, customToken = null, customProductId = null) {
   const now = Date.now()
   const o = `GPA.3381-${String(now).slice(-4)}-${String(now).slice(-4)}-${crypto.randomBytes(2).toString('hex')}`
   const until = new Date(now + 365*24*60*60*1000)
 
+  // Token bawaan yang sudah usang, disarankan memasukkan token valid lewat parameter kedua
+  const defaultToken = 'mmgaobamlahbbeccfplmbkbb.AO-J1OzqG0or_GJJIx-ms8GrTm-jaglCRfhQSRPUZKpl2YspYS-oN7_94uv8RC5vQbvd_Ios2pPDStZ2n7F0hLE3FiOU7HS3R6Fquulv5xLXFECSv4ctElw'
+  
   const b = {
     data: {
-      productId: 'am.full.sub.annual.19q4',
-      token: 'mmgaobamlahbbeccfplmbkbb.AO-J1OzqG0or_GJJIx-ms8GrTm-jaglCRfhQSRPUZKpl2YspYS-oN7_94uv8RC5vQbvd_Ios2pPDStZ2n7F0hLE3FiOU7HS3R6Fquulv5xLXFECSv4ctElw',
+      productId: customProductId || 'am.full.sub.annual.19q4',
+      token: customToken || defaultToken,
       skuType: 'subs',
       orderId: o,
       purchaseTime: now,
@@ -132,7 +135,7 @@ async function pro(id) {
     }
   }
   const h = {
-   ...h2,
+    ...h2,
     authorization: 'Bearer ' + id,
     'firebase-instance-id-token': 'cSDnCyp3T-uwp07z3tL86T:APA91bFkmvvsHw5nnqa1SBFci-99DRsKClLiETdRrVcJjS5yBx1v_FbCb1d8WhBuea_zmwnYBktyTIzcRhN4b6uNOUur9wPc0gKXmJDoZic0LhNq5V2s0xI'
   }
@@ -161,21 +164,25 @@ async function run() {
   if (p === '1') {
     const em = await inp('email: ')
     const r = await link(em)
-    console.log(r.ok? 'cek email, copy link' : 'gagal: ' + r.why)
+    console.log(r.ok ? 'cek email, copy link' : 'gagal: ' + r.why)
   }
 
   if (p === '2') {
     const em = await inp('email: ')
     const ln = await inp('link: ')
+    const tkn = await inp('input google play purchase token (kosongkan jika pakai default): ')
+    const pid = await inp('input product id (kosongkan untuk am.full.sub.annual.19q4): ')
+    
     const v = await auth(em, ln)
-    if (!v.ok) return console.log('gagal: ' + v.why)
+    if (!v.ok) return console.log('gagal auth: ' + v.why)
     console.log('login', v.email, '| baru:', v.baru)
-    const q = await pro(v.id)
+    
+    const q = await pro(v.id, tkn || null, pid || null)
     if (q.ok) {
       console.log(`premium ${q.order}`)
       console.log(`aktif: ${new Date().toLocaleDateString('id-ID')} -> expire: ${q.validUntilIndo} (full 1 thn)`)
     } else {
-      console.log('gagal: ' + q.why)
+      console.log('gagal aktivasi premium: ' + q.why)
     }
     put(em, { id: v.id, ref: v.ref, uid: v.uid, pro: q.ok, order: q.order, validUntil: q.validUntil })
     console.log('tersimpan')
@@ -186,9 +193,11 @@ async function run() {
     const s = get(em)
     if (!s) return console.log('gak ada')
     const r = await re(s.ref)
-    if (!r.ok) return console.log('gagal: ' + r.why)
-    const q = await pro(r.id)
-    console.log(q.ok? `premium ${q.order} | expire ${q.validUntilIndo}` : 'gagal: ' + q.why)
+    if (!r.ok) return console.log('gagal refresh token: ' + r.why)
+    
+    const tkn = await inp('input google play purchase token baru (kosongkan jika pakai default): ')
+    const q = await pro(r.id, tkn || null)
+    console.log(q.ok ? `premium ${q.order} | expire ${q.validUntilIndo}` : 'gagal: ' + q.why)
   }
 
   if (p === '4') console.log(J.stringify(db(), null, 2))
