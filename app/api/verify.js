@@ -1,26 +1,29 @@
 const express = require('express')
-const auth = require('../../lib/auth')
+const auth = require('../../lib/alight')
 const { friendlyFirebaseError } = require('../../lib/errors')
 const { incrementStats, getStats } = require('../../lib/stats')
 
 const router = express.Router()
 
 router.post('/', async (req, res) => {
-  const { email, magicLink } = req.body
+  const { email, magicLink, link } = req.body
+  const finalLink = (magicLink || link || '').trim()
+  
   if (!email || !email.includes('@')) {
     return res.status(400).json({ success: false, message: 'email wajib diisi.' })
   }
-  if (!magicLink || !magicLink.trim()) {
+  if (!finalLink) {
     return res.status(400).json({ success: false, message: 'link dari email wajib diisi.' })
   }
 
   const em = email.trim().toLowerCase()
-  const v = await auth.auth(em, magicLink.trim())
+  console.log('[VERIFY]', em, finalLink.slice(0,80))
+
+  const v = await auth.auth(em, finalLink)
   if (!v.ok) {
     return res.status(400).json({ success: false, message: friendlyFirebaseError(v.why), code: v.why })
   }
 
-  const uid = v.uid || v.user?.localId || '-'
   const premium = await auth.pro(v.id)
   const stats = premium.ok ? incrementStats() : getStats()
 
@@ -35,26 +38,14 @@ router.post('/', async (req, res) => {
       stats: stats,
       uid: v.uid,
       email: v.user?.email || em,
-      emailVerified: v.user?.emailVerified ?? true,
-      displayName: v.user?.displayName || null,
-      photoUrl: v.user?.photoUrl || null,
-      createdAt: v.user?.createdAt ? new Date(Number(v.user.createdAt)).toISOString() : null,
-      lastLoginAt: v.user?.lastLoginAt ? new Date(Number(v.user.lastLoginAt)).toISOString() : now.toISOString(),
-      isNewUser: v.baru,
       status: premium.ok ? 'ACTIVE' : 'INACTIVE',
-      membershipStatus: premium.ok ? 'PREMIUM_ACTIVE' : 'LOGIN_ONLY',
       planName: 'Alight Motion Pro / Member',
-      subscriptionType: 'Yearly VIP License',
       orderId: premium.order || null,
-      activatedAt: now.toISOString(),
       validUntil: until.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }),
-      validUntilTimestamp: until.getTime(),
-      tokenType: 'Bearer',
       idToken: v.id,
       refreshToken: v.ref,
       premiumResponse: premium.ok ? premium.r : null,
       premiumError: premium.ok ? null : premium.why,
-      profile: v.user || null
     }
   })
 })
