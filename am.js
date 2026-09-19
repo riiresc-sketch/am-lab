@@ -1,8 +1,3 @@
-/*
-  am.js — alight motion tool
-  author: zenno
-*/
-
 const axios = require('axios')
 const crypto = require('crypto')
 const fs = require('fs')
@@ -16,10 +11,10 @@ const cfg = {
   vfy: 'https://us-central1-alight-creative.cloudfunctions.net/verifyPurchase'
 }
 
-const dip = () => [crypto.randomInt(1,255), crypto.randomInt(0,255), crypto.randomInt(0,255), crypto.randomInt(1,255)].join('.')
+const dip = () => [crypto.randomInt(1,255), crypto.randomInt(0,255), crypto.randomInt(1,255)].join('.')
 
 const sp = h => ({
-  ...h,
+ ...h,
   'x-forwarded-for': dip(),
   'x-real-ip': dip(),
   'client-ip': dip(),
@@ -46,7 +41,7 @@ const S = String
 
 const bad = e => {
   const d = e.response?.data
-  return d ? (typeof d === 'object' ? J.stringify(d) : S(d)) : e.message
+  return d? (typeof d === 'object'? J.stringify(d) : S(d)) : e.message
 }
 
 const inp = q => new Promise(r => {
@@ -95,7 +90,7 @@ function code(raw) {
   const m = s.match(/oobCode=([a-zA-Z0-9_-]+)/i)
   if (m) return m[1]
   const t = raw.trim()
-  if (/^[a-zA-Z0-9_-]{10,}$/.test(t) && !t.includes('://')) return t
+  if (/^[a-zA-Z0-9_-]{10,}$/.test(t) &&!t.includes('://')) return t
   return null
 }
 
@@ -114,29 +109,36 @@ async function auth(email, raw) {
     return {
       ok: true, email: email,
       id: a.data.idToken, ref: a.data.refreshToken,
-      uid: a.data.localId, baru: !!a.data.isNewUser, user: u
+      uid: a.data.localId, baru:!!a.data.isNewUser, user: u
     }
   } catch (e) { return { ok: false, why: bad(e) } }
 }
 
 async function pro(id) {
-  const o = 'shinka-' + crypto.randomBytes(6).toString('hex')
+  const now = Date.now()
+  const until = new Date(now + 365*24*60*60*1000)
+  const o = 'shinka-' + now.toString(36) + '-' + crypto.randomBytes(3).toString('hex')
+
   const b = {
     data: {
       productId: 'am.full.sub.annual.19q4',
       token: 'mmgaobamlahbbeccfplmbkbb.AO-J1OzqG0or_GJJIx-ms8GrTm-jaglCRfhQSRPUZKpl2YspYS-oN7_94uv8RC5vQbvd_Ios2pPDStZ2n7F0hLE3FiOU7HS3R6Fquulv5xLXFECSv4ctElw',
       skuType: 'subs',
-      orderId: o
+      orderId: o,
+      purchaseTime: now,
+      purchaseTimeMillis: now,
+      autoRenewing: true,
+      purchaseState: 0
     }
   }
   const h = {
-    ...h2,
+   ...h2,
     authorization: 'Bearer ' + id,
     'firebase-instance-id-token': 'cSDnCyp3T-uwp07z3tL86T:APA91bFkmvvsHw5nnqa1SBFci-99DRsKClLiETdRrVcJjS5yBx1v_FbCb1d8WhBuea_zmwnYBktyTIzcRhN4b6uNOUur9wPc0gKXmJDoZic0LhNq5V2s0xI'
   }
   try {
     const r = await axios.post(cfg.vfy, b, { headers: sp(h) })
-    return { ok: true, order: o, r: r.data }
+    return { ok: true, order: o, r: r.data, validUntil: until.toISOString(), validUntilIndo: until.toLocaleDateString('id-ID',{year:'numeric',month:'long',day:'numeric'}) }
   } catch (e) { return { ok: false, why: bad(e) } }
 }
 
@@ -149,7 +151,7 @@ async function re(ref) {
   } catch (e) { return { ok: false, why: bad(e) } }
 }
 
-const put = (em, d) => { const a = db(); a[em] = { ...d, at: new Date().toISOString() }; save(a) }
+const put = (em, d) => { const a = db(); a[em] = {...d, at: new Date().toISOString() }; save(a) }
 const get = em => db()[em] || null
 
 async function run() {
@@ -159,7 +161,7 @@ async function run() {
   if (p === '1') {
     const em = await inp('email: ')
     const r = await link(em)
-    console.log(r.ok ? 'cek email, copy link' : 'gagal: ' + r.why)
+    console.log(r.ok? 'cek email, copy link' : 'gagal: ' + r.why)
   }
 
   if (p === '2') {
@@ -169,8 +171,13 @@ async function run() {
     if (!v.ok) return console.log('gagal: ' + v.why)
     console.log('login', v.email, '| baru:', v.baru)
     const q = await pro(v.id)
-    console.log(q.ok ? 'premium ' + q.order : 'gagal: ' + q.why)
-    put(em, { id: v.id, ref: v.ref, uid: v.uid, pro: q.ok })
+    if (q.ok) {
+      console.log(`premium ${q.order}`)
+      console.log(`aktif: ${new Date().toLocaleDateString('id-ID')} -> expire: ${q.validUntilIndo} (full 1 thn)`)
+    } else {
+      console.log('gagal: ' + q.why)
+    }
+    put(em, { id: v.id, ref: v.ref, uid: v.uid, pro: q.ok, order: q.order, validUntil: q.validUntil })
     console.log('tersimpan')
   }
 
@@ -181,7 +188,7 @@ async function run() {
     const r = await re(s.ref)
     if (!r.ok) return console.log('gagal: ' + r.why)
     const q = await pro(r.id)
-    console.log(q.ok ? 'premium ' + q.order : 'gagal: ' + q.why)
+    console.log(q.ok? `premium ${q.order} | expire ${q.validUntilIndo}` : 'gagal: ' + q.why)
   }
 
   if (p === '4') console.log(J.stringify(db(), null, 2))
