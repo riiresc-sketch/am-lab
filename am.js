@@ -116,8 +116,8 @@ async function auth(email, raw) {
 
 async function pro(id) {
   const now = Date.now()
+  const o = `GPA.3381-${String(now).slice(-4)}-${String(now).slice(-4)}-${crypto.randomBytes(2).toString('hex')}`
   const until = new Date(now + 365*24*60*60*1000)
-  const o = 'shinka-' + now.toString(36) + '-' + crypto.randomBytes(3).toString('hex')
 
   const b = {
     data: {
@@ -138,7 +138,7 @@ async function pro(id) {
   }
   try {
     const r = await axios.post(cfg.vfy, b, { headers: sp(h) })
-    return { ok: true, order: o, r: r.data, validUntil: until.toISOString(), validUntilIndo: until.toLocaleDateString('id-ID',{year:'numeric',month:'long',day:'numeric'}) }
+    return { ok: true, order: o, r: r.data, activatedAt: new Date(now).toISOString(), validUntil: until.toISOString(), validUntilIndo: until.toLocaleDateString('id-ID',{year:'numeric',month:'long',day:'numeric'}) }
   } catch (e) { return { ok: false, why: bad(e) } }
 }
 
