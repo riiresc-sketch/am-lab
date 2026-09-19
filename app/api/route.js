@@ -6,6 +6,6 @@ router.use('/status', require('./status'));
 router.use('/tempmail', require('./tempmail'));
 router.use('/send-link', require('./send'));
 router.use('/verify-link', require('./verify'));
-router.use('/stats', require('./stats-api'));
+router.use('/stats', require('./stats'));
 
 module.exports = router;
