@@ -3,7 +3,7 @@ const router = express.Router()
 const { incrementTempmail, getStats } = require('../../lib/stats')
 
 const API_BASE = 'https://api.theresav.eu/api/tools/generator-email'
-const API_KEY = 'MASUKIN_APIKEY_THERESAV_LU_DISINI' // <-- langsung taro sini
+const API_KEY = '7Ppcz' // <-- langsung taro sini
 
 async function createMail(){
   const data = await fetch(`${API_BASE}/create`, {
